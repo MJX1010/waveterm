@@ -15,6 +15,10 @@ vars:
     WINGET_PACKAGE: CommandLine.Wave
 
 tasks:
+    fork:sync:
+        desc: Merge the latest upstream/main into this fork, stashing local changes if needed.
+        cmd: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-upstream.ps1 {{.CLI_ARGS}}
+
     electron:dev:
         desc: Run the Electron application via the Vite dev server (enables hot reloading).
         cmd: npm run dev
