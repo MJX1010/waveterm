@@ -973,6 +973,16 @@ export class TermViewModel implements ViewModel {
                     createBlock(blockDef);
                 },
             });
+            fullMenu.push({
+                label: "Add Directory to Favorites",
+                click: () => {
+                    const blockData = globalStore.get(this.blockAtom);
+                    modalsModel.pushModal("AddDirFavoriteModal", {
+                        initialPath: blockData?.meta?.["cmd:cwd"],
+                        initialConnection: blockData?.meta?.connection,
+                    });
+                },
+            });
             fullMenu.push({ type: "separator" });
         }
 

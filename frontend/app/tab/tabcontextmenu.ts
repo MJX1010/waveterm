@@ -19,6 +19,7 @@ const FlagColors: { label: string; value: string }[] = [
 
 export function buildTabBarContextMenu(env: TabEnv): ContextMenuItem[] {
     const currentTabBar = globalStore.get(env.getSettingsKeyAtom("app:tabbar")) ?? "top";
+    const confirmClose = globalStore.get(env.getSettingsKeyAtom("tab:confirmclose")) ?? false;
     const tabBarSubmenu: ContextMenuItem[] = [
         {
             label: "Top",
@@ -33,7 +34,16 @@ export function buildTabBarContextMenu(env: TabEnv): ContextMenuItem[] {
             click: () => fireAndForget(() => env.rpc.SetConfigCommand(TabRpcClient, { "app:tabbar": "left" })),
         },
     ];
-    return [{ label: "Tab Bar Position", type: "submenu", submenu: tabBarSubmenu }];
+    return [
+        { label: "Tab Bar Position", type: "submenu", submenu: tabBarSubmenu },
+        {
+            label: "Confirm on Close Tab",
+            type: "checkbox",
+            checked: confirmClose,
+            click: () =>
+                fireAndForget(() => env.rpc.SetConfigCommand(TabRpcClient, { "tab:confirmclose": !confirmClose })),
+        },
+    ];
 }
 
 export function buildTabContextMenu(

@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Tooltip } from "@/app/element/tooltip";
+import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv, WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
 import { shouldIncludeWidgetForWorkspace } from "@/app/workspace/widgetfilter";
 import { modalsModel } from "@/store/modalmodel";
-import { fireAndForget, isBlank, makeIconClass } from "@/util/util";
+import { base64ToString, fireAndForget, isBlank, makeIconClass, stringToBase64 } from "@/util/util";
 import {
     autoUpdate,
     FloatingPortal,
@@ -49,8 +50,20 @@ function sortByDisplayOrder(wmap: { [key: string]: WidgetConfigType }): WidgetCo
     return wlist;
 }
 
+function sortByDisplayOrderWithKeys(wmap: { [key: string]: WidgetConfigType }): [string, WidgetConfigType][] {
+    if (wmap == null) {
+        return [];
+    }
+    const entries = Object.entries(wmap);
+    entries.sort(([, a], [, b]) => {
+        return (a["display:order"] ?? 0) - (b["display:order"] ?? 0);
+    });
+    return entries;
+}
+
 type WidgetPropsType = {
     widget: WidgetConfigType;
+    widgetKey?: string;
     mode: "normal" | "compact" | "supercompact";
     env: WidgetsEnv;
 };
@@ -60,9 +73,26 @@ async function handleWidgetSelect(widget: WidgetConfigType, env: WidgetsEnv) {
     env.createBlock(blockDef, widget.magnified);
 }
 
-const Widget = memo(({ widget, mode, env }: WidgetPropsType) => {
+async function removeDirFavorite(widgetKey: string) {
+    const configDir = (window as any).api.getConfigDir();
+    const fullPath = `${configDir}/widgets.json`;
+    try {
+        const fileData = await RpcApi.FileReadCommand(TabRpcClient, { info: { path: fullPath } }, null);
+        if (!fileData?.data64) return;
+        const content = base64ToString(fileData.data64);
+        const existing = JSON.parse(content);
+        delete existing[widgetKey];
+        const formatted = JSON.stringify(existing, null, 4);
+        await RpcApi.FileWriteCommand(TabRpcClient, { info: { path: fullPath }, data64: stringToBase64(formatted) }, null);
+    } catch (err) {
+        console.error("Failed to remove directory favorite:", err);
+    }
+}
+
+const Widget = memo(({ widget, widgetKey, mode, env }: WidgetPropsType) => {
     const [isTruncated, setIsTruncated] = useState(false);
     const labelRef = useRef<HTMLDivElement>(null);
+    const isDirFav = widgetKey?.startsWith("dirfav@") ?? false;
 
     useEffect(() => {
         if (mode === "normal" && labelRef.current) {
@@ -73,30 +103,50 @@ const Widget = memo(({ widget, mode, env }: WidgetPropsType) => {
 
     const shouldDisableTooltip = mode !== "normal" ? false : !isTruncated;
 
+    const handleContextMenu = useCallback(
+        (e: React.MouseEvent) => {
+            if (!isDirFav) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const menu: ContextMenuItem[] = [
+                {
+                    label: "Remove from Favorites",
+                    click: () => {
+                        fireAndForget(() => removeDirFavorite(widgetKey));
+                    },
+                },
+            ];
+            env.showContextMenu(menu, e);
+        },
+        [isDirFav, widgetKey, env]
+    );
+
     return (
-        <Tooltip
-            content={widget.description || widget.label}
-            placement="left"
-            disable={shouldDisableTooltip}
-            divClassName={clsx(
-                "flex flex-col justify-center items-center w-full py-1.5 pr-0.5 text-secondary overflow-hidden rounded-sm hover:bg-hoverbg hover:text-white cursor-pointer",
-                mode === "supercompact" ? "text-sm" : "text-lg",
-                widget["display:hidden"] && "hidden"
-            )}
-            divOnClick={() => handleWidgetSelect(widget, env)}
-        >
-            <div style={{ color: widget.color }}>
-                <i className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}></i>
-            </div>
-            {mode === "normal" && !isBlank(widget.label) ? (
-                <div
-                    ref={labelRef}
-                    className="text-xxs mt-0.5 w-full px-0.5 text-center whitespace-nowrap overflow-hidden text-ellipsis"
-                >
-                    {widget.label}
+        <div onContextMenu={isDirFav ? handleContextMenu : undefined}>
+            <Tooltip
+                content={widget.description || widget.label}
+                placement="left"
+                disable={shouldDisableTooltip}
+                divClassName={clsx(
+                    "flex flex-col justify-center items-center w-full py-1.5 pr-0.5 text-secondary overflow-hidden rounded-sm hover:bg-hoverbg hover:text-white cursor-pointer",
+                    mode === "supercompact" ? "text-sm" : "text-lg",
+                    widget["display:hidden"] && "hidden"
+                )}
+                divOnClick={() => handleWidgetSelect(widget, env)}
+            >
+                <div style={{ color: widget.color }}>
+                    <i className={makeIconClass(widget.icon, true, { defaultIcon: "browser" })}></i>
                 </div>
-            ) : null}
-        </Tooltip>
+                {mode === "normal" && !isBlank(widget.label) ? (
+                    <div
+                        ref={labelRef}
+                        className="text-xxs mt-0.5 w-full px-0.5 text-center whitespace-nowrap overflow-hidden text-ellipsis"
+                    >
+                        {widget.label}
+                    </div>
+                ) : null}
+            </Tooltip>
+        </div>
     );
 });
 
@@ -382,7 +432,8 @@ const Widgets = memo(() => {
     const filteredWidgets = Object.fromEntries(
         Object.entries(widgetsMap).filter(([_key, widget]) => shouldIncludeWidgetForWorkspace(widget, workspaceId))
     );
-    const widgets = sortByDisplayOrder(filteredWidgets);
+    const widgetEntries = sortByDisplayOrderWithKeys(filteredWidgets);
+    const widgets = widgetEntries.map(([, w]) => w);
 
     const [isAppsOpen, setIsAppsOpen] = useState(false);
     const appsButtonRef = useRef<HTMLDivElement>(null);
@@ -438,6 +489,13 @@ const Widgets = memo(() => {
         e.preventDefault();
         const menu: ContextMenuItem[] = [
             {
+                label: "Add Directory Favorite...",
+                click: () => {
+                    modalsModel.pushModal("AddDirFavoriteModal", {});
+                },
+            },
+            { type: "separator" },
+            {
                 label: "Edit widgets.json",
                 click: () => {
                     fireAndForget(async () => {
@@ -465,8 +523,8 @@ const Widgets = memo(() => {
                 {mode === "supercompact" ? (
                     <>
                         <div className="grid grid-cols-2 gap-0 w-full">
-                            {widgets?.map((data, idx) => (
-                                <Widget key={`widget-${idx}`} widget={data} mode={mode} env={env} />
+                            {widgetEntries?.map(([wkey, data]) => (
+                                <Widget key={wkey} widgetKey={wkey} widget={data} mode={mode} env={env} />
                             ))}
                         </div>
                         <div className="flex-grow" />
@@ -506,8 +564,8 @@ const Widgets = memo(() => {
                     </>
                 ) : (
                     <>
-                        {widgets?.map((data, idx) => (
-                            <Widget key={`widget-${idx}`} widget={data} mode={mode} env={env} />
+                        {widgetEntries?.map(([wkey, data]) => (
+                            <Widget key={wkey} widgetKey={wkey} widget={data} mode={mode} env={env} />
                         ))}
                         <div className="flex-grow" />
                         {env.isDev() || featureWaveAppBuilder ? (
@@ -588,8 +646,8 @@ const Widgets = memo(() => {
                 ref={measurementRef}
                 className="flex flex-col w-12 py-1 -ml-1 select-none absolute -z-10 opacity-0 pointer-events-none"
             >
-                {widgets?.map((data, idx) => (
-                    <Widget key={`measurement-widget-${idx}`} widget={data} mode="normal" env={env} />
+                {widgetEntries?.map(([wkey, data]) => (
+                    <Widget key={`measurement-${wkey}`} widgetKey={wkey} widget={data} mode="normal" env={env} />
                 ))}
                 <div className="flex-grow" />
                 <div className="flex flex-col justify-center items-center w-full py-1.5 pr-0.5 text-lg">

@@ -3,6 +3,7 @@
 
 import { Tooltip } from "@/app/element/tooltip";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { confirmAndCloseTab } from "@/app/tab/tabclose";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { deleteLayoutModelForTab } from "@/layout/index";
@@ -541,8 +542,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
     const handleCloseTab = (event: React.MouseEvent<HTMLButtonElement, MouseEvent> | null, tabId: string) => {
         event?.stopPropagation();
-        env.electron
-            .closeTab(workspace.oid, tabId, confirmClose)
+        confirmAndCloseTab(workspace.oid, tabId, confirmClose)
             .then((didClose) => {
                 if (didClose) {
                     tabsWrapperRef.current?.style.setProperty("--tabs-wrapper-transition", "width 0.3s ease");

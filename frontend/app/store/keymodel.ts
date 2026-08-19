@@ -20,6 +20,7 @@ import {
     replaceBlock,
     WOS,
 } from "@/app/store/global";
+import { confirmAndCloseTab } from "@/app/tab/tabclose";
 import { getActiveTabModel } from "@/app/store/tab-model";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { deleteLayoutModelForTab, getLayoutModelForStaticTab, NavigateDirection } from "@/layout/index";
@@ -132,8 +133,7 @@ function simpleCloseStaticTab() {
     const workspaceId = globalStore.get(atoms.workspaceId);
     const tabId = globalStore.get(atoms.staticTabId);
     const confirmClose = globalStore.get(getSettingsKeyAtom("tab:confirmclose")) ?? false;
-    getApi()
-        .closeTab(workspaceId, tabId, confirmClose)
+    confirmAndCloseTab(workspaceId, tabId, confirmClose)
         .then((didClose) => {
             if (didClose) {
                 deleteLayoutModelForTab(tabId);

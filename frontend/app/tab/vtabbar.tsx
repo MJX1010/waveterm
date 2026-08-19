@@ -6,8 +6,10 @@ import { getTabBadgeAtom } from "@/app/store/badge";
 import { getTabModelByTabId } from "@/app/store/tab-model";
 import { makeORef } from "@/app/store/wos";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { confirmAndCloseTab } from "@/app/tab/tabclose";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
+import { deleteLayoutModelForTab } from "@/layout/index";
 import { validateCssColor } from "@/util/color-validator";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
@@ -189,6 +191,7 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
     const activeTabId = useAtomValue(env.atoms.staticTabId);
     const reinitVersion = useAtomValue(env.atoms.reinitVersion);
     const documentHasFocus = useAtomValue(env.atoms.documentHasFocus);
+    const confirmClose = useAtomValue(env.getSettingsKeyAtom("tab:confirmclose")) ?? false;
     const tabIds = workspace?.tabids ?? [];
 
     const [orderedTabIds, setOrderedTabIds] = useState<string[]>(tabIds);
@@ -374,7 +377,15 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                             hoverResetVersion={hoverResetVersion}
                             index={index}
                             onSelect={() => env.electron.setActiveTab(tabId)}
-                            onClose={() => fireAndForget(() => env.electron.closeTab(workspace.oid, tabId, false))}
+                            onClose={() =>
+                                fireAndForget(() =>
+                                    confirmAndCloseTab(workspace.oid, tabId, confirmClose).then((didClose) => {
+                                        if (didClose) {
+                                            deleteLayoutModelForTab(tabId);
+                                        }
+                                    })
+                                )
+                            }
                             onRename={(newName) =>
                                 fireAndForget(() => env.rpc.UpdateTabNameCommand(TabRpcClient, tabId, newName))
                             }
