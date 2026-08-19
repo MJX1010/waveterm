@@ -95,6 +95,7 @@ wsh editconfig
 | tab:preset <DeprecatedBadge />       | string   | a "bg@" preset to automatically apply to new tabs. e.g. `bg@green`. should match the preset key. deprecated in favor of `tab:background`                                                                                                                     |
 | tab:background <VersionBadge version="v0.14.4" />  | string   | a "bg@" preset to automatically apply to new tabs. e.g. `bg@green`. should match the preset key                                                                                                                                                               |
 | tab:confirmclose                     | bool     | if set to true, a confirmation dialog will be shown before closing a tab (defaults to false)                                                                                                                                                                   |
+| tab:closelasttabcloseswindow <VersionBadge version="v0.15" /> | bool | if set to true, closing the last tab in a workspace will close the window. when false, Wave creates a replacement tab and keeps the window open (defaults to false)                                                                                             |
 | widget:showhelp                      | bool     | whether to show help/tips widgets in right sidebar                                                                                                                                                                                                            |
 | window:transparent                   | bool     | set to true to enable window transparency (cannot be combined with `window:blur`) (macOS and Windows only, requires app restart, see [note on Windows compatibility](https://www.electronjs.org/docs/latest/tutorial/custom-window-styles#limitations))       |
 | window:blur                          | bool     | set to enable window background blurring (cannot be combined with `window:transparent`) (macOS and Windows only, requires app restart, see [note on Windows compatibility](https://www.electronjs.org/docs/latest/tutorial/custom-window-styles#limitations)) |
@@ -138,6 +139,7 @@ For reference, this is the current default configuration (v0.14.0):
     "editor:minimapenabled": true,
     "web:defaulturl": "https://github.com/wavetermdev/waveterm",
     "web:defaultsearch": "https://www.google.com/search?q={query}",
+    "tab:closelasttabcloseswindow": false,
     "window:tilegapsize": 3,
     "window:maxtabcachesize": 10,
     "window:nativetitlebar": true,

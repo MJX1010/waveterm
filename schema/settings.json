@@ -238,6 +238,9 @@
         "tab:background": {
           "type": "string"
         },
+        "tab:closelasttabcloseswindow": {
+          "type": "boolean"
+        },
         "widget:*": {
           "type": "boolean"
         },

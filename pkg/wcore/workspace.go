@@ -195,6 +195,10 @@ func getTabBackground() string {
 	return config.Settings.TabPreset
 }
 
+func shouldCloseWindowOnLastTabClose(settings wconfig.SettingsType) bool {
+	return settings.TabCloseLastTabClosesWindow
+}
+
 var tabNameRe = regexp.MustCompile(`^T(\d+)$`)
 
 // getNextTabName returns the next auto-generated tab name (e.g. "T3") given a
@@ -320,7 +324,9 @@ func DeleteTab(ctx context.Context, workspaceId string, tabId string, recursive 
 
 	// if the tab is active, determine new active tab
 	newActiveTabId := ws.ActiveTabId
-	if ws.ActiveTabId == tabId {
+	if len(ws.TabIds) == 0 {
+		newActiveTabId = ""
+	} else if ws.ActiveTabId == tabId {
 		if len(ws.TabIds) > 0 {
 			newActiveTabId = ws.TabIds[max(0, min(tabIdx-1, len(ws.TabIds)-1))]
 		} else {
@@ -335,17 +341,22 @@ func DeleteTab(ctx context.Context, workspaceId string, tabId string, recursive 
 		wstore.DBDelete(ctx, waveobj.OType_LayoutState, tab.LayoutState)
 	}
 
-	// if no tabs remaining, close window
+	// If no tabs remain, either close the window for legacy behavior or replace the tab.
 	if recursive && newActiveTabId == "" {
-		log.Printf("no tabs remaining in workspace %s, closing window\n", workspaceId)
-		windowId, err := wstore.DBFindWindowForWorkspaceId(ctx, workspaceId)
-		if err != nil {
-			return newActiveTabId, fmt.Errorf("unable to find window for workspace id %v: %w", workspaceId, err)
+		config := wconfig.GetWatcher().GetFullConfig()
+		if shouldCloseWindowOnLastTabClose(config.Settings) {
+			log.Printf("no tabs remaining in workspace %s, closing window\n", workspaceId)
+			windowId, err := wstore.DBFindWindowForWorkspaceId(ctx, workspaceId)
+			if err != nil {
+				return newActiveTabId, fmt.Errorf("unable to find window for workspace id %v: %w", workspaceId, err)
+			}
+			err = CloseWindow(ctx, windowId, false)
+			if err != nil {
+				return newActiveTabId, err
+			}
+			return newActiveTabId, nil
 		}
-		err = CloseWindow(ctx, windowId, false)
-		if err != nil {
-			return newActiveTabId, err
-		}
+		return CreateTab(ctx, workspaceId, "", true, false)
 	}
 	return newActiveTabId, nil
 }

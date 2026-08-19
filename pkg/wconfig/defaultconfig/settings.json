@@ -19,6 +19,7 @@
     "editor:minimapenabled": true,
     "web:defaulturl": "https://github.com/wavetermdev/waveterm",
     "web:defaultsearch": "https://www.google.com/search?q={query}",
+    "tab:closelasttabcloseswindow": false,
     "window:tilegapsize": 3,
     "window:maxtabcachesize": 10,
     "window:nativetitlebar": true,

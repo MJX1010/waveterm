@@ -1446,6 +1446,7 @@ declare global {
         "tab:preset"?: string;
         "tab:confirmclose"?: boolean;
         "tab:background"?: string;
+        "tab:closelasttabcloseswindow"?: boolean;
         "widget:*"?: boolean;
         "widget:showhelp"?: boolean;
         "window:*"?: boolean;
